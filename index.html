@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KMBSC சீட்டு - WhatsApp Messages</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;600;700&family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green: #25D366;
+  --green-dark: #128C7E;
+  --green-light: #DCF8C6;
+  --gold: #FFD700;
+  --gold-dark: #B8860B;
+  --bg: #0a1628;
+  --card: #111f35;
+  --card2: #162844;
+  --border: #1e3a5f;
+  --text: #e8f4fd;
+  --muted: #7a9bbd;
+  --red: #ff4757;
+  --orange: #ffa502;
+  --blue: #3742fa;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Poppins', 'Noto Sans Tamil', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* HEADER */
+.header {
+  background: linear-gradient(135deg, #0d2137 0%, #0a3d2b 100%);
+  border-bottom: 2px solid var(--green-dark);
+  padding: 16px 20px;
+  text-align: center;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+.header h1 {
+  font-size: 1.4rem; font-weight: 800;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+.header p { font-size: 0.75rem; color: var(--green); margin-top: 2px; }
+
+/* TABS */
+.tabs {
+  display: flex; overflow-x: auto;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 0 8px;
+  gap: 4px;
+}
+.tab {
+  padding: 12px 16px; white-space: nowrap;
+  font-size: 0.8rem; font-weight: 600;
+  color: var(--muted); cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+.tab.active { color: var(--green); border-bottom-color: var(--green); }
+.tab-add {
+  padding: 12px 16px; color: var(--gold);
+  cursor: pointer; font-size: 1.2rem;
+  display: flex; align-items: center;
+}
+
+/* MAIN */
+.main { padding: 16px; max-width: 600px; margin: 0 auto; }
+
+/* CARDS */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card-title {
+  font-size: 0.85rem; font-weight: 700;
+  color: var(--gold); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* SELECTS & INPUTS */
+select, input {
+  width: 100%; padding: 10px 12px;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text);
+  font-size: 0.85rem; font-family: inherit;
+  margin-bottom: 10px;
+}
+select:focus, input:focus {
+  outline: none; border-color: var(--green);
+}
+label { font-size: 0.78rem; color: var(--muted); display: block; margin-bottom: 4px; }
+
+/* MONTH INFO */
+.month-info {
+  display: flex; gap: 10px; margin-bottom: 14px;
+}
+.info-box {
+  flex: 1; background: var(--card2);
+  border-radius: 8px; padding: 10px;
+  text-align: center; border: 1px solid var(--border);
+}
+.info-box .val { font-size: 1rem; font-weight: 700; color: var(--green); }
+.info-box .lbl { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+
+/* MESSAGE SECTION */
+.msg-section { margin-bottom: 14px; }
+.msg-type-title {
+  font-size: 0.78rem; font-weight: 700;
+  color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 8px;
+  padding-left: 4px;
+}
+
+/* MESSAGE BOX */
+.msg-box {
+  background: #0d2b1a;
+  border: 1px solid #1a4a2a;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+  position: relative;
+}
+.msg-box.reminder { border-color: #2a4a1a; background: #0d2b1a; }
+.msg-box.confirm { border-color: #1a3a4a; background: #0d1f2b; }
+.msg-box.default-alert { border-color: #4a2a1a; background: #2b0d0d; }
+.msg-box.winner { border-color: #4a3a1a; background: #2b1f0d; }
+.msg-box.summary { border-color: #2a1a4a; background: #1a0d2b; }
+
+.msg-label {
+  font-size: 0.7rem; font-weight: 700;
+  padding: 2px 8px; border-radius: 4px;
+  display: inline-block; margin-bottom: 8px;
+}
+.msg-label.reminder { background: var(--green-dark); color: #fff; }
+.msg-label.confirm { background: #0066cc; color: #fff; }
+.msg-label.default-alert { background: var(--red); color: #fff; }
+.msg-label.winner { background: var(--gold-dark); color: #fff; }
+.msg-label.summary { background: #6b21a8; color: #fff; }
+
+.msg-text {
+  font-size: 0.8rem; line-height: 1.6;
+  color: #c8e6c9; white-space: pre-wrap;
+  font-family: 'Noto Sans Tamil', sans-serif;
+}
+.msg-box.confirm .msg-text { color: #b3d9f5; }
+.msg-box.default-alert .msg-text { color: #ffcdd2; }
+.msg-box.winner .msg-text { color: #fff9c4; }
+.msg-box.summary .msg-text { color: #e1bee7; }
+
+.wa-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--green); color: #fff;
+  border: none; border-radius: 8px;
+  padding: 8px 14px; font-size: 0.78rem;
+  font-weight: 700; cursor: pointer;
+  margin-top: 10px; width: 100%;
+  justify-content: center;
+  transition: background 0.2s;
+  font-family: inherit;
+}
+.wa-btn:hover { background: var(--green-dark); }
+.wa-btn svg { width: 16px; height: 16px; fill: #fff; }
+
+/* MEMBER LIST */
+.member-list { display: flex; flex-direction: column; gap: 8px; }
+.member-row {
+  display: flex; align-items: center;
+  background: var(--card2); border-radius: 8px;
+  padding: 10px 12px; gap: 10px;
+  border: 1px solid var(--border);
+}
+.member-name { flex: 1; font-size: 0.82rem; font-weight: 600; }
+.member-num { font-size: 0.7rem; color: var(--muted); margin-right: 4px; }
+.wa-mini {
+  background: var(--green); color: #fff;
+  border: none; border-radius: 6px;
+  padding: 6px 10px; font-size: 0.72rem;
+  font-weight: 700; cursor: pointer;
+  font-family: inherit; white-space: nowrap;
+  transition: background 0.2s;
+}
+.wa-mini:hover { background: var(--green-dark); }
+.wa-mini.alert-btn { background: var(--red); }
+.wa-mini.alert-btn:hover { background: #cc0000; }
+
+/* DRAW SECTION */
+.draw-box {
+  background: linear-gradient(135deg, #1a0d2b, #2b1f0d);
+  border: 1px solid var(--gold-dark);
+  border-radius: 12px; padding: 16px;
+  text-align: center; margin-bottom: 14px;
+}
+.draw-title { color: var(--gold); font-weight: 700; font-size: 0.9rem; margin-bottom: 12px; }
+.bidder-checkboxes {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 14px; justify-content: flex-start;
+}
+.bidder-check {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 10px;
+  cursor: pointer; font-size: 0.78rem;
+  transition: all 0.2s;
+}
+.bidder-check.selected { border-color: var(--gold); background: #2b1f0d; color: var(--gold); }
+.bidder-check input { width: auto; margin: 0; }
+
+.draw-btn {
+  background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+  color: #000; border: none; border-radius: 10px;
+  padding: 12px 24px; font-size: 0.9rem; font-weight: 800;
+  cursor: pointer; font-family: inherit;
+  transition: transform 0.1s;
+}
+.draw-btn:hover { transform: scale(1.03); }
+
+.winner-result {
+  margin-top: 14px; padding: 14px;
+  background: rgba(255,215,0,0.1);
+  border: 2px solid var(--gold);
+  border-radius: 10px; display: none;
+}
+.winner-result.show { display: block; }
+.winner-name { font-size: 1.2rem; font-weight: 800; color: var(--gold); }
+.winner-sub { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+
+/* GROUP MGMT */
+.add-group-form {
+  background: var(--card2); border-radius: 10px;
+  padding: 14px; margin-bottom: 14px;
+  border: 1px dashed var(--border); display: none;
+}
+.add-group-form.show { display: block; }
+.btn-row { display: flex; gap: 8px; margin-top: 8px; }
+.btn-primary {
+  background: var(--green); color: #fff;
+  border: none; border-radius: 8px;
+  padding: 10px 18px; font-size: 0.82rem;
+  font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.btn-secondary {
+  background: var(--card); color: var(--muted);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 18px; font-size: 0.82rem;
+  cursor: pointer; font-family: inherit;
+}
+.member-input-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.member-input-row input { margin: 0; }
+.member-input-row button {
+  background: var(--red); color: #fff;
+  border: none; border-radius: 6px;
+  padding: 0 10px; cursor: pointer; font-size: 1rem;
+}
+
+/* PHONE INPUT */
+.phone-row {
+  display: flex; gap: 6px; align-items: center;
+  margin-bottom: 10px;
+}
+.phone-row input { margin: 0; flex: 1; }
+.phone-row label { white-space: nowrap; margin: 0; }
+
+/* SUMMARY SECTION */
+.summary-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 14px;
+}
+
+/* SPINNER */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinning { animation: spin 0.5s linear infinite; display: inline-block; }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--green-dark); color: #fff;
+  padding: 10px 20px; border-radius: 20px;
+  font-size: 0.82rem; font-weight: 600;
+  transition: transform 0.3s; z-index: 999;
+  pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+.divider { height: 1px; background: var(--border); margin: 14px 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🏛️ KMBSC சீட்டு</h1>
+  <p>WhatsApp Message Center</p>
+  <p id="fbStatus" style="font-size:0.68rem;margin-top:4px;color:var(--muted)">⏳ Connecting...</p>
+</div>
+
+<div class="tabs" id="groupTabs">
+  <!-- dynamically filled -->
+  <div class="tab-add" onclick="showAddGroup()" title="New Group">＋</div>
+</div>
+
+<!-- Add Group Form -->
+<div class="main">
+  <div class="add-group-form" id="addGroupForm">
+    <div class="card-title">➕ புதுசா Group சேர்க்க</div>
+    <label>Group பேரு</label>
+    <input type="text" id="newGroupName" placeholder="Example: GROUP 3">
+    <div id="newMemberInputs">
+      <div class="member-input-row">
+        <input type="text" placeholder="Member 1 பேரு">
+        <input type="text" placeholder="Phone (optional)">
+      </div>
+    </div>
+    <button class="btn-secondary" onclick="addMemberInput()" style="margin-bottom:10px;width:100%">+ Member சேர்</button>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="saveNewGroup()">✅ Save</button>
+      <button class="btn-secondary" onclick="hideAddGroup()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="main" id="mainContent">
+  <!-- Month Selector -->
+  <div class="card">
+    <div class="card-title">📅 Month தேர்வு</div>
+    <label>Month</label>
+    <select id="monthSelect" onchange="updateMonthInfo()">
+      <option value="0">M1 – January 2026</option>
+      <option value="1">M2 – February 2026</option>
+      <option value="2">M3 – March 2026</option>
+      <option value="3">M4 – April 2026</option>
+      <option value="4">M5 – May 2026</option>
+      <option value="5">M6 – June 2026</option>
+      <option value="6">M7 – July 2026</option>
+      <option value="7">M8 – August 2026</option>
+      <option value="8">M9 – September 2026</option>
+      <option value="9">M10 – October 2026</option>
+      <option value="10">M11 – November 2026</option>
+    </select>
+    <div class="month-info">
+      <div class="info-box">
+        <div class="val" id="infoInstalment">₹10,000</div>
+        <div class="lbl">இந்த மாசம் கட்டணும்</div>
+      </div>
+      <div class="info-box">
+        <div class="val" id="infoPrize">₹1,00,000</div>
+        <div class="lbl">Prize Amount</div>
+      </div>
+      <div class="info-box">
+        <div class="val" id="infoDue">19th</div>
+        <div class="lbl">Last Date</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. Reminder – All Members -->
+  <div class="card">
+    <div class="card-title">🔔 1. Monthly Reminder – அனைவருக்கும்</div>
+    <div class="msg-box reminder">
+      <span class="msg-label reminder">REMINDER</span>
+      <div class="msg-text" id="reminderMsgAll"></div>
+      <button class="wa-btn" onclick="sendWA('reminderMsgAll')">
+        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.122.554 4.118 1.528 5.85L0 24l6.336-1.508A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.794 9.794 0 01-4.988-1.365l-.356-.212-3.762.895.952-3.659-.232-.374A9.79 9.79 0 012.182 12C2.182 6.583 6.583 2.182 12 2.182S21.818 6.583 21.818 12 17.417 21.818 12 21.818z"/></svg>
+        WhatsApp அனுப்பு
+      </button>
+    </div>
+  </div>
+
+  <!-- 2. Individual Reminder -->
+  <div class="card">
+    <div class="card-title">👤 2. Individual Reminder</div>
+    <label>Member தேர்வு</label>
+    <select id="reminderMember" onchange="updateIndividualMsg()"></select>
+    <div class="msg-box reminder">
+      <span class="msg-label reminder">REMINDER</span>
+      <div class="msg-text" id="reminderMsgIndividual"></div>
+      <button class="wa-btn" onclick="sendWAMember('reminderMsgIndividual','reminderMember')">
+        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.122.554 4.118 1.528 5.85L0 24l6.336-1.508A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.794 9.794 0 01-4.988-1.365l-.356-.212-3.762.895.952-3.659-.232-.374A9.79 9.79 0 012.182 12C2.182 6.583 6.583 2.182 12 2.182S21.818 6.583 21.818 12 17.417 21.818 12 21.818z"/></svg>
+        WhatsApp அனுப்பு
+      </button>
+    </div>
+  </div>
+
+  <!-- 3. Payment Confirmation -->
+  <div class="card">
+    <div class="card-title">✅ 3. Payment Receipt &nbsp;<span style="font-size:0.72rem;color:var(--muted);font-weight:400">Next: <span id="nextReceiptPreview">R001</span></span></div>
+    <label>Member தேர்வு</label>
+    <select id="confirmMember" onchange="updateConfirmMsg()"></select>
+    <label>Payment Date</label>
+    <input type="date" id="confirmDate" onchange="updateConfirmMsg()">
+    <div class="msg-box confirm">
+      <span class="msg-label confirm">PAYMENT ✅</span>
+      <div class="msg-text" id="confirmMsg"></div>
+      <button class="wa-btn" onclick="sendWAMember('confirmMsg','confirmMember',true)">
+        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.122.554 4.118 1.528 5.85L0 24l6.336-1.508A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.794 9.794 0 01-4.988-1.365l-.356-.212-3.762.895.952-3.659-.232-.374A9.79 9.79 0 012.182 12C2.182 6.583 6.583 2.182 12 2.182S21.818 6.583 21.818 12 17.417 21.818 12 21.818z"/></svg>
+        WhatsApp அனுப்பு
+      </button>
+    </div>
+  </div>
+
+  <!-- 4. Default Alert -->
+  <div class="card">
+    <div class="card-title">⚠️ 4. Default Alert (கட்டல reminder)</div>
+    <label>Member தேர்வு</label>
+    <select id="defaultMember" onchange="updateDefaultMsg()"></select>
+    <div class="msg-box default-alert">
+      <span class="msg-label default-alert">⚠️ OVERDUE</span>
+      <div class="msg-text" id="defaultMsg"></div>
+      <button class="wa-btn" style="background:#e53935" onclick="sendWAMember('defaultMsg','defaultMember')">
+        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.122.554 4.118 1.528 5.85L0 24l6.336-1.508A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.794 9.794 0 01-4.988-1.365l-.356-.212-3.762.895.952-3.659-.232-.374A9.79 9.79 0 012.182 12C2.182 6.583 6.583 2.182 12 2.182S21.818 6.583 21.818 12 17.417 21.818 12 21.818z"/></svg>
+        WhatsApp அனுப்பு
+      </button>
+    </div>
+  </div>
+
+  <!-- 5. Prize Draw + Winner -->
+  <div class="card">
+    <div class="card-title">🏆 5. Prize Winner – குலுக்கல் & Announcement</div>
+    <div class="draw-box">
+      <div class="draw-title">Bid போட்டவங்க தேர்வு பண்ணுங்க</div>
+      <p style="font-size:0.75rem;color:var(--muted);margin-bottom:12px;">யாரும் select பண்ணல = all members குலுக்கல்</p>
+      <div class="bidder-checkboxes" id="bidderCheckboxes"></div>
+      <button class="draw-btn" onclick="runDraw()">🎲 குலுக்கல் நடத்து</button>
+      <div class="winner-result" id="winnerResult">
+        <div style="font-size:0.75rem;color:var(--gold);margin-bottom:4px;">🏆 WINNER</div>
+        <div class="winner-name" id="winnerName"></div>
+        <div class="winner-sub" id="winnerSub"></div>
+      </div>
+    </div>
+    <div class="msg-box winner" id="winnerMsgBox" style="display:none">
+      <span class="msg-label winner">🏆 WINNER</span>
+      <div class="msg-text" id="winnerMsg"></div>
+      <button class="wa-btn" style="background:#b8860b" onclick="sendWA('winnerMsg')">
+        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.122.554 4.118 1.528 5.85L0 24l6.336-1.508A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.794 9.794 0 01-4.988-1.365l-.356-.212-3.762.895.952-3.659-.232-.374A9.79 9.79 0 012.182 12C2.182 6.583 6.583 2.182 12 2.182S21.818 6.583 21.818 12 17.417 21.818 12 21.818z"/></svg>
+        WhatsApp – Group-க்கு அனுப்பு
+      </button>
+    </div>
+  </div>
+
+  <!-- 6. Monthly Summary -->
+  <div class="card">
+    <div class="card-title">📊 6. Monthly Summary</div>
+    <label>Winner பேரு (optional)</label>
+    <input type="text" id="summaryWinner" placeholder="Winner பேர் type பண்ணுங்க" oninput="updateSummaryMsg()">
+    <div class="msg-box summary">
+      <span class="msg-label summary">📊 SUMMARY</span>
+      <div class="msg-text" id="summaryMsg"></div>
+      <button class="wa-btn" style="background:#6b21a8" onclick="sendWA('summaryMsg')">
+        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.122.554 4.118 1.528 5.85L0 24l6.336-1.508A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.794 9.794 0 01-4.988-1.365l-.356-.212-3.762.895.952-3.659-.232-.374A9.79 9.79 0 012.182 12C2.182 6.583 6.583 2.182 12 2.182S21.818 6.583 21.818 12 17.417 21.818 12 21.818z"/></svg>
+        WhatsApp – Group-க்கு அனுப்பு
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast">Copied!</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────
+const CHART = [
+  { instalment: 10000, prize: 100000 },
+  { instalment: 7500,  prize: 73000  },
+  { instalment: 7600,  prize: 74000  },
+  { instalment: 7700,  prize: 75000  },
+  { instalment: 7800,  prize: 77000  },
+  { instalment: 8000,  prize: 81000  },
+  { instalment: 8200,  prize: 84000  },
+  { instalment: 8400,  prize: 85000  },
+  { instalment: 8500,  prize: 88000  },
+  { instalment: 9300,  prize: 95000  },
+  { instalment: 10000, prize: 98000  },
+];
+
+const MONTHS = [
+  "January 2026","February 2026","March 2026","April 2026","May 2026",
+  "June 2026","July 2026","August 2026","September 2026","October 2026","November 2026"
+];
+const MONTHS_TA = [
+  "ஜனவரி","பிப்ரவரி","மார்ச்","ஏப்ரல்","மே",
+  "ஜூன்","ஜூலை","ஆகஸ்ட்","செப்டம்பர்","அக்டோபர்","நவம்பர்"
+];
+
+const defaultGroups = [
+  {
+    name: "GROUP 1",
+    members: [
+      { name: "GIRI", phone: "" },
+      { name: "USHA / PRIYA AKKA", phone: "" },
+      { name: "SELVI RAMESH", phone: "" },
+      { name: "GOWRI CHITHI", phone: "" },
+      { name: "DHAYALAN CHITHAPPA", phone: "" },
+      { name: "SUVEENDHARAN", phone: "" },
+      { name: "SUSI MA", phone: "" },
+      { name: "VASANTH", phone: "" },
+      { name: "ARUN KEERTHANA", phone: "" },
+      { name: "BALA COIMBATORE", phone: "" },
+    ]
+  },
+  {
+    name: "GROUP 2",
+    members: [
+      { name: "DEENA", phone: "" },
+      { name: "RAJAMURUGAN & SUGANTHI", phone: "" },
+      { name: "VIJAYA CHITHI", phone: "" },
+      { name: "K. BALAJI", phone: "" },
+      { name: "SELVAM ANNA", phone: "" },
+      { name: "SUDHAKAR", phone: "" },
+      { name: "RAGU (SRINIVASAN) ANNA", phone: "" },
+      { name: "KRISHNAKUMARI CHITHI", phone: "" },
+      { name: "VISHWAM MAMA", phone: "" },
+      { name: "RAMESH / NAGARAJ CHITHAPPA", phone: "" },
+    ]
+  }
+];
+
+let groups = JSON.parse(localStorage.getItem('kmbsc_groups') || 'null') || defaultGroups;
+let currentGroup = 0;
+let currentWinner = null;
+
+function saveGroups() {
+  localStorage.setItem('kmbsc_groups', JSON.stringify(groups));
+}
+
+// ─── TABS ────────────────────────────────────────────────────────────
+function renderTabs() {
+  const tabsEl = document.getElementById('groupTabs');
+  // remove old tabs
+  Array.from(tabsEl.querySelectorAll('.tab')).forEach(t => t.remove());
+  const addBtn = tabsEl.querySelector('.tab-add');
+  groups.forEach((g, i) => {
+    const t = document.createElement('div');
+    t.className = 'tab' + (i === currentGroup ? ' active' : '');
+    t.textContent = g.name;
+    t.onclick = () => switchGroup(i);
+    tabsEl.insertBefore(t, addBtn);
+  });
+}
+
+function switchGroup(i) {
+  currentGroup = i;
+  renderTabs();
+  populateSelects();
+  updateAll();
+}
+
+// ─── SELECTS ─────────────────────────────────────────────────────────
+function populateSelects() {
+  const members = groups[currentGroup].members;
+  ['reminderMember','confirmMember','defaultMember'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = members.map((m,i) => `<option value="${i}">${m.name}</option>`).join('');
+  });
+  // bidder checkboxes
+  const bc = document.getElementById('bidderCheckboxes');
+  bc.innerHTML = members.map((m,i) => `
+    <label class="bidder-check" id="bc_${i}" onclick="toggleBidder(${i})">
+      <input type="checkbox" id="bid_${i}" style="width:auto;margin:0"> ${m.name}
+    </label>`).join('');
+  currentWinner = null;
+  document.getElementById('winnerResult').classList.remove('show');
+  document.getElementById('winnerMsgBox').style.display = 'none';
+}
+
+function toggleBidder(i) {
+  const chk = document.getElementById(`bid_${i}`);
+  chk.checked = !chk.checked;
+  document.getElementById(`bc_${i}`).classList.toggle('selected', chk.checked);
+}
+
+// ─── MONTH INFO ──────────────────────────────────────────────────────
+function updateMonthInfo() {
+  const mi = parseInt(document.getElementById('monthSelect').value);
+  const d = CHART[mi];
+  document.getElementById('infoInstalment').textContent = '₹' + d.instalment.toLocaleString('en-IN');
+  document.getElementById('infoPrize').textContent = '₹' + d.prize.toLocaleString('en-IN');
+  document.getElementById('infoDue').textContent = '19th';
+  updateAll();
+}
+
+function getMonthIdx() { return parseInt(document.getElementById('monthSelect').value); }
+function getGroup() { return groups[currentGroup]; }
+function getChart() { return CHART[getMonthIdx()]; }
+
+// ─── MESSAGE GENERATORS ──────────────────────────────────────────────
+function fmt(n) { return '₹' + n.toLocaleString('en-IN'); }
+
+function msgReminder(memberName) {
+  const mi = getMonthIdx();
+  const c = getChart();
+  const gName = getGroup().name;
+  return `🏛️ *KMBSC சீட்டு – ${gName}*
+━━━━━━━━━━━━━━━━
+🔔 *மாத சீட்டு தொகை நினைவூட்டல்*
+
+👤 அன்பான ${memberName} அவர்களுக்கு,
+
+📅 மாதம்: *M${mi+1} – ${MONTHS_TA[mi]} 2026*
+💰 கட்ட வேண்டிய தொகை: *${fmt(c.instalment)}*
+📆 கடைசி தேதி: *19 ${MONTHS[mi]}*
+
+⏰ தாமதமாகாமல் 19ம் தேதிக்குள் செலுத்தவும்.
+
+நன்றி 🙏
+*– KMBSC TEAM*`;
+}
+
+function msgReminderAll() {
+  const mi = getMonthIdx();
+  const c = getChart();
+  const gName = getGroup().name;
+  const members = getGroup().members;
+  const list = members.map((m,i) => `${i+1}. ${m.name}`).join('\n');
+  return `🏛️ *KMBSC சீட்டு – ${gName}*
+━━━━━━━━━━━━━━━━
+🔔 *மாத சீட்டு தொகை நினைவூட்டல்*
+
+📅 மாதம்: *M${mi+1} – ${MONTHS_TA[mi]} 2026*
+💰 இந்த மாதம் கட்டணும்: *${fmt(c.instalment)}*
+🏆 Prize Amount: *${fmt(c.prize)}*
+📆 கடைசி தேதி: *19 ${MONTHS[mi]}*
+
+👥 *Members:*
+${list}
+
+⏰ அனைவரும் 19ம் தேதிக்குள் செலுத்தவும்.
+
+நன்றி 🙏
+*– KMBSC TEAM*`;
+}
+
+function getNextReceiptNo() {
+  const last = parseInt(localStorage.getItem('kmbsc_receipt_no') || '0');
+  const next = last + 1;
+  localStorage.setItem('kmbsc_receipt_no', next);
+  return 'R' + String(next).padStart(3, '0');
+}
+
+function peekReceiptNo() {
+  const last = parseInt(localStorage.getItem('kmbsc_receipt_no') || '0');
+  return 'R' + String(last + 1).padStart(3, '0');
+}
+
+function msgConfirm(memberName, date, receiptNo) {
+  const mi = getMonthIdx();
+  const c = getChart();
+  const gName = getGroup().name;
+  const dateStr = date ? new Date(date).toLocaleDateString('ta-IN') : new Date().toLocaleDateString('ta-IN');
+  const rNo = receiptNo || peekReceiptNo();
+  return `🏛️ *KMBSC சீட்டு – ${gName}*
+━━━━━━━━━━━━━━━━
+✅ *Payment Receipt*
+
+🧾 *Receipt No: ${rNo}*
+👤 ${memberName} அவர்களே,
+
+📅 மாதம்: *M${mi+1} – ${MONTHS_TA[mi]} 2026*
+💰 தொகை பெறப்பட்டது: *${fmt(c.instalment)}*
+🗓️ தேதி: *${dateStr}*
+
+உங்கள் பங்களிப்புக்கு மிக்க நன்றி! 🙏
+
+*– KMBSC TEAM*`;
+}
+
+function msgDefault(memberName) {
+  const mi = getMonthIdx();
+  const c = getChart();
+  const gName = getGroup().name;
+  return `🏛️ *KMBSC சீட்டு – ${gName}*
+━━━━━━━━━━━━━━━━
+⚠️ *தொகை கட்டவில்லை – Reminder*
+
+👤 அன்பான ${memberName} அவர்களுக்கு,
+
+📅 மாதம்: *M${mi+1} – ${MONTHS_TA[mi]} 2026*
+💰 நிலுவை தொகை: *${fmt(c.instalment)}*
+📆 கடைசி தேதி: *19 ${MONTHS[mi]}* கடந்துவிட்டது
+
+❗ தயவுசெய்து விரைவில் செலுத்தவும்.
+தாமதம் ஆனால் group-க்கு சிரமம் ஏற்படும்.
+
+தொடர்பு கொள்ளவும் 📞
+
+*– KMBSC TEAM*`;
+}
+
+function msgWinner(winnerName, drawType) {
+  const mi = getMonthIdx();
+  const c = getChart();
+  const gName = getGroup().name;
+  const drawNote = drawType === 'single' ? '(ஒரே ஒருவர் bid – நேரடியாக வழங்கப்பட்டது)' :
+                   drawType === 'multi'  ? '(பல பேர் bid – குலுக்கலில் தேர்ந்தெடுக்கப்பட்டார்)' :
+                                           '(யாரும் bid இல்லை – முழு group குலுக்கலில் தேர்ந்தெடுக்கப்பட்டார்)';
+  return `🏛️ *KMBSC சீட்டு – ${gName}*
+━━━━━━━━━━━━━━━━
+🏆 *Prize Winner – ${MONTHS_TA[mi]} 2026*
+
+🎉 வாழ்த்துக்கள்! 🎉
+
+👑 *Winner: ${winnerName}*
+📅 மாதம்: *M${mi+1} – ${MONTHS_TA[mi]} 2026*
+💰 Prize Amount: *${fmt(c.prize)}*
+${drawNote}
+
+அனைவரும் வாழ்த்துங்கள்! 🙌
+
+*– KMBSC TEAM*`;
+}
+
+function msgSummary(winnerName) {
+  const mi = getMonthIdx();
+  const c = getChart();
+  const g = getGroup();
+  const total = c.instalment * g.members.length;
+  const winner = winnerName || currentWinner || '—';
+  return `🏛️ *KMBSC சீட்டு – ${g.name}*
+━━━━━━━━━━━━━━━━
+📊 *Monthly Summary – ${MONTHS_TA[mi]} 2026*
+
+📅 மாதம்: *M${mi+1}*
+👥 Members: *${g.members.length}*
+💰 Monthly Instalment: *${fmt(c.instalment)}*
+📥 Total Collected: *${fmt(total)}*
+🏆 Prize Paid: *${fmt(c.prize)}*
+👑 Winner: *${winner}*
+
+அடுத்த மாத கட்டணும்: *${mi < 10 ? fmt(CHART[mi+1].instalment) : '— (கடைசி மாதம்)'}*
+📆 Due: *19 ${mi < 10 ? MONTHS[mi+1] : '—'}*
+
+*– KMBSC TEAM*`;
+}
+
+// ─── UPDATE FUNCTIONS ─────────────────────────────────────────────────
+function updateAll() {
+  updateReminderAll();
+  updateIndividualMsg();
+  updateConfirmMsg();
+  updateDefaultMsg();
+  updateSummaryMsg();
+  // reset winner
+  document.getElementById('winnerResult').classList.remove('show');
+  document.getElementById('winnerMsgBox').style.display = 'none';
+}
+
+function updateReminderAll() {
+  document.getElementById('reminderMsgAll').textContent = msgReminderAll();
+}
+function updateIndividualMsg() {
+  const mi = document.getElementById('reminderMember').value;
+  const m = getGroup().members[mi];
+  if (m) document.getElementById('reminderMsgIndividual').textContent = msgReminder(m.name);
+}
+function updateConfirmMsg() {
+  const mi = document.getElementById('confirmMember').value;
+  const m = getGroup().members[mi];
+  const date = document.getElementById('confirmDate').value;
+  if (m) document.getElementById('confirmMsg').textContent = msgConfirm(m.name, date);
+}
+function updateDefaultMsg() {
+  const mi = document.getElementById('defaultMember').value;
+  const m = getGroup().members[mi];
+  if (m) document.getElementById('defaultMsg').textContent = msgDefault(m.name);
+}
+function updateSummaryMsg() {
+  const w = document.getElementById('summaryWinner').value;
+  document.getElementById('summaryMsg').textContent = msgSummary(w || currentWinner);
+}
+
+// ─── LUCKY DRAW ───────────────────────────────────────────────────────
+function runDraw() {
+  const members = getGroup().members;
+  const checked = members.filter((m,i) => document.getElementById(`bid_${i}`)?.checked);
+  const pool = checked.length > 0 ? checked : members;
+  const drawType = checked.length === 1 ? 'single' : checked.length > 1 ? 'multi' : 'none';
+
+  // Animate
+  let count = 0;
+  const nameEl = document.getElementById('winnerName');
+  const resultEl = document.getElementById('winnerResult');
+  resultEl.classList.add('show');
+  nameEl.textContent = '🎲';
+
+  const interval = setInterval(() => {
+    const r = pool[Math.floor(Math.random() * pool.length)];
+    nameEl.textContent = r.name;
+    count++;
+    if (count > 18) {
+      clearInterval(interval);
+      const winner = pool[Math.floor(Math.random() * pool.length)];
+      nameEl.textContent = '🏆 ' + winner.name;
+      currentWinner = winner.name;
+      document.getElementById('winnerSub').textContent =
+        drawType === 'single' ? 'ஒரே ஒருவர் bid – நேரடி winner' :
+        drawType === 'multi'  ? `${checked.length} பேர் bid – குலுக்கலில் தேர்வு` :
+                                'யாரும் bid இல்லை – full group குலுக்கல்';
+      document.getElementById('winnerMsg').textContent = msgWinner(winner.name, drawType);
+      document.getElementById('winnerMsgBox').style.display = 'block';
+      // auto fill summary
+      document.getElementById('summaryWinner').value = winner.name;
+      updateSummaryMsg();
+    }
+  }, 80);
+}
+
+// ─── WHATSAPP SEND ────────────────────────────────────────────────────
+function sendWA(msgId) {
+  const text = document.getElementById(msgId).textContent;
+  const encoded = encodeURIComponent(text);
+  window.open(`https://wa.me/?text=${encoded}`, '_blank');
+}
+
+function sendWAMember(msgId, selectId, isReceipt) {
+  const mi = document.getElementById(selectId).value;
+  const member = getGroup().members[mi];
+  let text;
+  if (isReceipt) {
+    // Generate new receipt number on actual send
+    const rNo = getNextReceiptNo();
+    const date = document.getElementById('confirmDate').value;
+    text = msgConfirm(member.name, date, rNo);
+    // Update displayed message with used receipt no
+    document.getElementById(msgId).textContent = text;
+    showToast('Receipt ' + rNo + ' generated!');
+  } else {
+    text = document.getElementById(msgId).textContent;
+  }
+  const encoded = encodeURIComponent(text);
+  if (member.phone) {
+    const phone = member.phone.replace(/\D/g,'');
+    window.open(`https://wa.me/${phone}?text=${encoded}`, '_blank');
+  } else {
+    window.open(`https://wa.me/?text=${encoded}`, '_blank');
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── ADD GROUP ────────────────────────────────────────────────────────
+function showAddGroup() {
+  document.getElementById('addGroupForm').classList.add('show');
+}
+function hideAddGroup() {
+  document.getElementById('addGroupForm').classList.remove('show');
+}
+function addMemberInput() {
+  const c = document.getElementById('newMemberInputs').children.length + 1;
+  const div = document.createElement('div');
+  div.className = 'member-input-row';
+  div.innerHTML = `<input type="text" placeholder="Member ${c} பேரு"><input type="text" placeholder="Phone (optional)"><button onclick="this.parentElement.remove()">✕</button>`;
+  document.getElementById('newMemberInputs').appendChild(div);
+}
+function saveNewGroup() {
+  const name = document.getElementById('newGroupName').value.trim();
+  if (!name) { alert('Group பேரு கொடுங்க'); return; }
+  const rows = document.getElementById('newMemberInputs').querySelectorAll('.member-input-row');
+  const members = [];
+  rows.forEach(r => {
+    const inputs = r.querySelectorAll('input');
+    const n = inputs[0].value.trim();
+    const p = inputs[1].value.trim();
+    if (n) members.push({ name: n, phone: p });
+  });
+  if (members.length === 0) { alert('குறைந்தது ஒரு member சேர்க்கவும்'); return; }
+  groups.push({ name, members });
+  saveGroups();
+  currentGroup = groups.length - 1;
+  document.getElementById('newGroupName').value = '';
+  document.getElementById('newMemberInputs').innerHTML = `<div class="member-input-row"><input type="text" placeholder="Member 1 பேரு"><input type="text" placeholder="Phone (optional)"></div>`;
+  hideAddGroup();
+  renderTabs();
+  populateSelects();
+  updateAll();
+}
+
+// ─── FIREBASE ────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBVGVu59jDZybPFAX_pRisSrQRoXHQ0EWY",
+  authDomain: "kmbsc-chit.firebaseapp.com",
+  databaseURL: "https://kmbsc-chit-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "kmbsc-chit",
+  storageBucket: "kmbsc-chit.firebasestorage.app",
+  messagingSenderId: "511325458985",
+  appId: "1:511325458985:web:a7597bcf0f89b71405c238"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const FB_PATH = 'kmbsc_whatsapp';
+
+function fbSaveGroups() {
+  db.ref(FB_PATH + '/groups').set(groups);
+}
+
+function fbSaveReceiptNo(n) {
+  db.ref(FB_PATH + '/receipt_no').set(n);
+}
+
+function saveGroups() {
+  fbSaveGroups();
+  localStorage.setItem('kmbsc_groups', JSON.stringify(groups));
+}
+
+// Override receipt functions to use Firebase
+let _receiptNo = 0;
+
+function getNextReceiptNo() {
+  _receiptNo++;
+  fbSaveReceiptNo(_receiptNo);
+  localStorage.setItem('kmbsc_receipt_no', _receiptNo);
+  document.getElementById('nextReceiptPreview').textContent = peekReceiptNo();
+  return 'R' + String(_receiptNo).padStart(3, '0');
+}
+
+function peekReceiptNo() {
+  return 'R' + String(_receiptNo + 1).padStart(3, '0');
+}
+
+// Firebase status indicator
+function setFbStatus(ok) {
+  const el = document.getElementById('fbStatus');
+  if (!el) return;
+  el.textContent = ok ? '🟢 Firebase Connected' : '🔴 Offline (localStorage)';
+  el.style.color = ok ? 'var(--green)' : 'var(--red)';
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────
+function init() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('confirmDate').value = today;
+  const now = new Date();
+  const monthIdx = Math.max(0, Math.min(10, now.getMonth() - 0));
+  document.getElementById('monthSelect').value = monthIdx;
+
+  // Load from Firebase
+  db.ref(FB_PATH).once('value').then(snap => {
+    const data = snap.val();
+    if (data) {
+      if (data.groups && data.groups.length > 0) {
+        groups = data.groups;
+        localStorage.setItem('kmbsc_groups', JSON.stringify(groups));
+      }
+      if (data.receipt_no) {
+        _receiptNo = data.receipt_no;
+        localStorage.setItem('kmbsc_receipt_no', _receiptNo);
+      }
+    }
+    setFbStatus(true);
+    document.getElementById('nextReceiptPreview').textContent = peekReceiptNo();
+    renderTabs();
+    populateSelects();
+    updateMonthInfo();
+  }).catch(e => {
+    console.warn('Firebase load failed, using localStorage', e);
+    setFbStatus(false);
+    _receiptNo = parseInt(localStorage.getItem('kmbsc_receipt_no') || '0');
+    document.getElementById('nextReceiptPreview').textContent = peekReceiptNo();
+    renderTabs();
+    populateSelects();
+    updateMonthInfo();
+  });
+
+  // Realtime listener for receipt number (multi-device sync)
+  db.ref(FB_PATH + '/receipt_no').on('value', snap => {
+    if (snap.val() !== null && snap.val() > _receiptNo) {
+      _receiptNo = snap.val();
+      localStorage.setItem('kmbsc_receipt_no', _receiptNo);
+      document.getElementById('nextReceiptPreview').textContent = peekReceiptNo();
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
