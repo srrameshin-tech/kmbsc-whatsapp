@@ -228,6 +228,21 @@ select:focus,input:focus{outline:none;border-color:var(--green);}
   <div class="card-title">➕ புதுசா Group</div>
   <label>Group பேரு</label>
   <input type="text" id="newGrpName" placeholder="GROUP 3">
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <div style="flex:1">
+      <label style="font-size:0.75rem;color:var(--muted)">தொடக்க மாதம்</label>
+      <select id="newGrpStartMonth" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit">
+        <option value="0">January</option><option value="1">February</option><option value="2">March</option>
+        <option value="3">April</option><option value="4">May</option><option value="5">June</option>
+        <option value="6">July</option><option value="7">August</option><option value="8">September</option>
+        <option value="9">October</option><option value="10">November</option><option value="11">December</option>
+      </select>
+    </div>
+    <div style="flex:1">
+      <label style="font-size:0.75rem;color:var(--muted)">ஆண்டு</label>
+      <input type="number" id="newGrpStartYear" value="2026" min="2020" max="2040" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit">
+    </div>
+  </div>
   <div id="newMemInputs">
     <div class="mem-input-row">
       <input type="text" placeholder="Member பேரு">
@@ -726,10 +741,12 @@ function toggleChartEdit(){
   }
 }
 function renderChartEdit(){
-  const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov'];
-  document.getElementById('chartEditList').innerHTML=groups[curGrp].chart.map((r,i)=>`
+  const ALL_MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const g=groups[curGrp];
+  const sm=g.startMonth||0;
+  document.getElementById('chartEditList').innerHTML=g.chart.map((r,i)=>`
     <div class="chart-row">
-      <span>M${i+1} ${MN[i]}</span>
+      <span>M${i+1} ${ALL_MN[(sm+i)%12]}</span>
       <div style="flex:1"><label style="font-size:0.65rem;color:var(--muted)">Instalment</label><input type="number" id="ci_${i}" value="${r.i}" style="margin:0"></div>
       <div style="flex:1"><label style="font-size:0.65rem;color:var(--muted)">Prize</label><input type="number" id="cp_${i}" value="${r.p}" style="margin:0"></div>
     </div>`).join('');
@@ -830,7 +847,9 @@ function saveNewGroup(){
   const mems=[];
   rows.forEach(r=>{ const ins=r.querySelectorAll('input'); const n=ins[0].value.trim(); const p=ins[1].value.trim(); if(n) mems.push({n,p}); });
   if(!mems.length){ toast('Member சேர்க்கவும்'); return; }
-  groups.push({name:nm, chart:newChartData.map(r=>({...r})), members:mems});
+  const sm = parseInt(document.getElementById('newGrpStartMonth').value)||0;
+  const sy = parseInt(document.getElementById('newGrpStartYear').value)||new Date().getFullYear();
+  groups.push({name:nm, startMonth:sm, startYear:sy, chart:newChartData.map(r=>({...r})), members:mems});
   fbSave(); localStorage.setItem('kmbsc_g',JSON.stringify(groups));
   curGrp=groups.length-1;
   document.getElementById('newGrpName').value='';
