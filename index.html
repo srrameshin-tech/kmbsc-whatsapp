@@ -928,11 +928,15 @@ function renderPayGrid(){
     <div class="pay-sum-box"><div class="v" style="color:#ff6b6b">${pend}</div><div class="l">⏳ Pending</div></div>
     <div class="pay-sum-box"><div class="v" style="color:var(--gold)">${fmt(paid*ch.i)}</div><div class="l">Collected</div></div>`;
 }
+function cleanPhone(p){
+  if(!p) return '';
+  return p.replace(/\D/g,'');
+}
 function sendRemToMem(i){
   const m=getGrp().members[i];
   const txt=buildReminder(m.n);
   const enc=encodeURIComponent(txt);
-  window.open(m.p?`https://wa.me/91${m.p}?text=${enc}`:`https://wa.me/?text=${enc}`,'_blank');
+  window.open(cleanPhone(m.p)?`https://wa.me/91${cleanPhone(m.p)}?text=${enc}`:`https://wa.me/?text=${enc}`,'_blank');
 }
 function sendRecToMem(i){
   const m=getGrp().members[i];
@@ -942,7 +946,7 @@ function sendRecToMem(i){
   const paidDate=getPaidDate(i);
   const txt=buildReceipt(m.n,'R'+String(recNo).padStart(3,'0'),paidDate);
   toast('Receipt R'+String(recNo).padStart(3,'0'));
-  window.open(m.p?`https://wa.me/91${m.p}?text=${encodeURIComponent(txt)}`:`https://wa.me/?text=${encodeURIComponent(txt)}`,'_blank');
+  window.open(cleanPhone(m.p)?`https://wa.me/91${cleanPhone(m.p)}?text=${encodeURIComponent(txt)}`:`https://wa.me/?text=${encodeURIComponent(txt)}`,'_blank');
 }
 let paidModalIdx=null;
 function openPaidDateModal(i){
@@ -1188,7 +1192,7 @@ function sendWAMem(msgId,selId){
   const txt=getMsgText(msgId);
   const i=parseInt(document.getElementById(selId).value);
   const m=getGrp().members[i];
-  window.open(m.p?`https://wa.me/91${m.p}?text=${encodeURIComponent(txt)}`:`https://wa.me/?text=${encodeURIComponent(txt)}`,'_blank');
+  window.open(cleanPhone(m.p)?`https://wa.me/91${cleanPhone(m.p)}?text=${encodeURIComponent(txt)}`:`https://wa.me/?text=${encodeURIComponent(txt)}`,'_blank');
 }
 function sendReceipt(){
   const i=parseInt(document.getElementById('selConfirm').value);
@@ -1200,7 +1204,7 @@ function sendReceipt(){
   document.getElementById('msgConfirm').textContent=txt;
   document.getElementById('nextReceipt').textContent='R'+String(recNo+1).padStart(3,'0');
   toast('Receipt '+rno+' generated!');
-  window.open(m.p?`https://wa.me/91${m.p}?text=${encodeURIComponent(txt)}`:`https://wa.me/?text=${encodeURIComponent(txt)}`,'_blank');
+  window.open(cleanPhone(m.p)?`https://wa.me/91${cleanPhone(m.p)}?text=${encodeURIComponent(txt)}`:`https://wa.me/?text=${encodeURIComponent(txt)}`,'_blank');
 }
 
 // ════════════════════════════════════════════════
