@@ -891,6 +891,10 @@ function getPaidDate(i){
   if(rec && typeof rec==='object' && rec.date) return rec.date;
   return null;
 }
+function isRecConfirmed(i){
+  const rec=payments[payKey()]&&payments[payKey()][i];
+  return !!(rec && typeof rec==='object' && rec.recConfirmed);
+}
 function togglePay(i){
   const k=payKey();
   if(!payments[k]) payments[k]={};
@@ -931,6 +935,18 @@ function sendRemToMem(i){
   window.open(m.p?`https://wa.me/91${m.p}?text=${enc}`:`https://wa.me/?text=${enc}`,'_blank');
 }
 function sendRecToMem(i){
+  if(isRecConfirmed(i)){
+    // Already confirmed once - send directly with saved date
+    const m=getGrp().members[i];
+    recNo++;
+    fbSaveRec(recNo); localStorage.setItem('kmbsc_rec',recNo);
+    document.getElementById('nextReceipt').textContent='R'+String(recNo+1).padStart(3,'0');
+    const paidDate=getPaidDate(i);
+    const txt=buildReceipt(m.n,'R'+String(recNo).padStart(3,'0'),paidDate);
+    toast('Receipt R'+String(recNo).padStart(3,'0'));
+    window.open(m.p?`https://wa.me/91${m.p}?text=${encodeURIComponent(txt)}`:`https://wa.me/?text=${encodeURIComponent(txt)}`,'_blank');
+    return;
+  }
   openRecDateModal(i);
 }
 let recModalIdx=null;
@@ -969,10 +985,10 @@ function confirmSendRec(){
   recNo++;
   fbSaveRec(recNo); localStorage.setItem('kmbsc_rec',recNo);
   document.getElementById('nextReceipt').textContent='R'+String(recNo+1).padStart(3,'0');
-  // Update stored paid date to match chosen date
+  // Update stored paid date to match chosen date, mark as confirmed
   const k=payKey();
   if(!payments[k]) payments[k]={};
-  payments[k][i]={status:'paid', date:chosenDate};
+  payments[k][i]={status:'paid', date:chosenDate, recConfirmed:true};
   fbSavePay(); localStorage.setItem('kmbsc_pay',JSON.stringify(payments));
   const txt=buildReceipt(m.n,'R'+String(recNo).padStart(3,'0'),chosenDate);
   toast('Receipt R'+String(recNo).padStart(3,'0'));
