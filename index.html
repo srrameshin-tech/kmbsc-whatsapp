@@ -881,11 +881,26 @@ function saveNewGroup(){
 // PAYMENT TRACKER
 // ════════════════════════════════════════════════
 function payKey(){ return groups[curGrp].name+'_'+getMI(); }
-function getStatus(i){ return (payments[payKey()]&&payments[payKey()][i])||'pending'; }
+function getStatus(i){
+  const rec=payments[payKey()]&&payments[payKey()][i];
+  if(!rec) return 'pending';
+  return (typeof rec==='string') ? rec : rec.status;
+}
+function getPaidDate(i){
+  const rec=payments[payKey()]&&payments[payKey()][i];
+  if(rec && typeof rec==='object' && rec.date) return rec.date;
+  return null;
+}
 function togglePay(i){
   const k=payKey();
   if(!payments[k]) payments[k]={};
-  payments[k][i]=payments[k][i]==='paid'?'pending':'paid';
+  const cur=getStatus(i);
+  if(cur==='paid'){
+    payments[k][i]='pending';
+  } else {
+    const today=new Date().toISOString().split('T')[0];
+    payments[k][i]={status:'paid', date:today};
+  }
   fbSavePay(); localStorage.setItem('kmbsc_pay',JSON.stringify(payments));
   renderPayGrid();
 }
@@ -920,7 +935,8 @@ function sendRecToMem(i){
   recNo++;
   fbSaveRec(recNo); localStorage.setItem('kmbsc_rec',recNo);
   document.getElementById('nextReceipt').textContent='R'+String(recNo+1).padStart(3,'0');
-  const txt=buildReceipt(m.n,'R'+String(recNo).padStart(3,'0'));
+  const paidDate=getPaidDate(i);
+  const txt=buildReceipt(m.n,'R'+String(recNo).padStart(3,'0'),paidDate);
   toast('Receipt R'+String(recNo).padStart(3,'0'));
   window.open(m.p?`https://wa.me/91${m.p}?text=${encodeURIComponent(txt)}`:`https://wa.me/?text=${encodeURIComponent(txt)}`,'_blank');
 }
@@ -978,16 +994,40 @@ function toggleBid(i){
 // ════════════════════════════════════════════════
 function buildReminder(name){
   const mi=getMI(); const ch=getChart();
-  return `🏛️ *KMBSC சீட்டு – ${getGrp().name}*\n━━━━━━━━━━━━━━━━\n🔔 *மாத சீட்டு நினைவூட்டல்*\n\n👤 அன்பான ${name} அவர்களுக்கு,\n\n📅 மாதம்: *M${mi+1} – ${getAbsMonthNameTA()} ${getMonthYear()}*\n💰 கட்ட வேண்டியது: *${fmt(ch.i)}*\n📆 கடைசி தேதி: *19 ${getAbsMonthName()}*\n\n⏰ 19ம் தேதிக்குள் செலுத்தவும்.\n\nநன்றி 🙏\n*– KMBSC TEAM*`;
+  const d=new Date().getDate();
+  const left=19-d;
+  let urgencyLine;
+  if(left<0){
+    urgencyLine=`🚨 *கடைசி தேதி கடந்துவிட்டது!* விரைவில் செலுத்தவும்.`;
+  } else if(left===0){
+    urgencyLine=`🚨 *இன்று கடைசி தேதி!* இன்றே செலுத்தவும்.`;
+  } else if(left<=7){
+    urgencyLine=`⏰ *இன்னும் ${left} நாள் மட்டும்!* 19ம் தேதிக்குள் செலுத்தவும்.`;
+  } else {
+    urgencyLine=`⏰ 19ம் தேதிக்குள் செலுத்தவும்.`;
+  }
+  return `🏛️ *KMBSC சீட்டு – ${getGrp().name}*\n━━━━━━━━━━━━━━━━\n🔔 *மாத சீட்டு நினைவூட்டல்*\n\n👤 அன்பான ${name} அவர்களுக்கு,\n\n📅 மாதம்: *M${mi+1} – ${getAbsMonthNameTA()} ${getMonthYear()}*\n💰 கட்ட வேண்டியது: *${fmt(ch.i)}*\n📆 கடைசி தேதி: *19 ${getAbsMonthName()}*\n\n${urgencyLine}\n\nநன்றி 🙏\n*– KMBSC TEAM*`;
 }
 function buildReminderAll(){
   const mi=getMI(); const ch=getChart();
   const list=getGrp().members.map((m,i)=>`${i+1}. ${m.n}`).join('\n');
-  return `🏛️ *KMBSC சீட்டு – ${getGrp().name}*\n━━━━━━━━━━━━━━━━\n🔔 *மாத சீட்டு நினைவூட்டல்*\n\n📅 மாதம்: *M${mi+1} – ${getAbsMonthNameTA()} ${getMonthYear()}*\n💰 கட்டணும்: *${fmt(ch.i)}*\n🏆 Prize: *${fmt(ch.p)}*\n📆 கடைசி: *19 ${getAbsMonthName()}*\n\n👥 *Members:*\n${list}\n\n⏰ அனைவரும் 19ம் தேதிக்குள் செலுத்தவும்!\n\nநன்றி 🙏\n*– KMBSC TEAM*`;
+  const d=new Date().getDate();
+  const left=19-d;
+  let urgencyLine;
+  if(left<0){
+    urgencyLine=`🚨 *கடைசி தேதி கடந்துவிட்டது!* அனைவரும் விரைவில் செலுத்தவும்.`;
+  } else if(left===0){
+    urgencyLine=`🚨 *இன்று கடைசி தேதி!* அனைவரும் இன்றே செலுத்தவும்.`;
+  } else if(left<=7){
+    urgencyLine=`⏰ *இன்னும் ${left} நாள் மட்டும்!* அனைவரும் 19ம் தேதிக்குள் செலுத்தவும்!`;
+  } else {
+    urgencyLine=`⏰ அனைவரும் 19ம் தேதிக்குள் செலுத்தவும்!`;
+  }
+  return `🏛️ *KMBSC சீட்டு – ${getGrp().name}*\n━━━━━━━━━━━━━━━━\n🔔 *மாத சீட்டு நினைவூட்டல்*\n\n📅 மாதம்: *M${mi+1} – ${getAbsMonthNameTA()} ${getMonthYear()}*\n💰 கட்டணும்: *${fmt(ch.i)}*\n🏆 Prize: *${fmt(ch.p)}*\n📆 கடைசி: *19 ${getAbsMonthName()}*\n\n👥 *Members:*\n${list}\n\n${urgencyLine}\n\nநன்றி 🙏\n*– KMBSC TEAM*`;
 }
-function buildReceipt(name,rno){
+function buildReceipt(name,rno,paidDate){
   const mi=getMI(); const ch=getChart();
-  const dt=document.getElementById('confirmDate').value;
+  const dt=paidDate||document.getElementById('confirmDate').value;
   const ds=dt?new Date(dt).toLocaleDateString('ta-IN'):new Date().toLocaleDateString('ta-IN');
   return `🏛️ *KMBSC சீட்டு – ${getGrp().name}*\n━━━━━━━━━━━━━━━━\n✅ *Payment Receipt*\n\n🧾 *Receipt No: ${rno}*\n👤 ${name} அவர்களே,\n\n📅 மாதம்: *M${mi+1} – ${getAbsMonthNameTA()} ${getMonthYear()}*\n💰 தொகை: *${fmt(ch.i)}*\n🗓️ தேதி: *${ds}*\n\nநன்றி 🙏\n*– KMBSC TEAM*`;
 }
