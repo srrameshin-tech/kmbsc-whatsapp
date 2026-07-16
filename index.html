@@ -462,7 +462,12 @@ select:focus,input:focus{outline:none;border-color:var(--green);}
 // ════════════════════════════════════════════════
 // CONSTANTS
 // ════════════════════════════════════════════════
-const ADMIN_PWD = 'kmbsc123';
+const ADMIN_PWD_HASH = 'b7bb7b06960657e9f6cf0ce041e44cda5ebe8b0ff53acfb644b7e6c71cd0df0e'; // sha256("kmbsc123")
+async function sha256Hex(str){
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 const FB_PATH = 'kmbsc_whatsapp';
 const FB_CFG = {
   apiKey:"AIzaSyBVGVu59jDZybPFAX_pRisSrQRoXHQ0EWY",
@@ -547,15 +552,15 @@ function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg
 // ════════════════════════════════════════════════
 // LOGIN
 // ════════════════════════════════════════════════
-function doLogin(){
+async function doLogin(){
   const v = document.getElementById('pwdInput').value.trim();
-  if(v === ADMIN_PWD || v === 'kmbsc123'){
+  if(await sha256Hex(v) === ADMIN_PWD_HASH){
     document.getElementById('loginScreen').classList.add('hide');
     sessionStorage.setItem('kmbsc_auth','1');
     loadApp();
   } else {
     document.getElementById('loginErr').style.display='block';
-    document.getElementById('loginErr').textContent='❌ Wrong password! Try: kmbsc123';
+    document.getElementById('loginErr').textContent='❌ Wrong password!';
     document.getElementById('pwdInput').value='';
     document.getElementById('pwdInput').focus();
   }
