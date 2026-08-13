@@ -8,7 +8,7 @@
         ".write": "auth != null && auth.token.email === 'srrameshin@gmail.com'"
       },
       "entries": {
-        ".read": "auth != null && auth.token.email === 'srrameshin@gmail.com'",
+        ".read": "auth != null && (auth.token.email === 'srrameshin@gmail.com' || auth.token.email === 'kmbsc-backup@sramesh.in')",
         ".write": "auth != null && auth.token.email === 'srrameshin@gmail.com'",
         "$id": {
           ".read": true,
