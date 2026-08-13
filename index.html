@@ -2,6 +2,7 @@
 <html lang="ta">
 <head>
 <meta charset="UTF-8">
+<meta name="app-build" content="20260813-1140">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#25D366">
 <meta name="mobile-web-app-capable" content="yes">
@@ -176,6 +177,7 @@ select:focus,input:focus{outline:none;border-color:var(--green);}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 </head>
 <body>
 
@@ -183,12 +185,29 @@ select:focus,input:focus{outline:none;border-color:var(--green);}
 <div class="login-screen" id="loginScreen">
   <img src="logo.png.png" class="login-logo" onerror="this.style.display='none'">
   <div class="login-title">KMBSC சீட்டு</div>
-  <div class="login-sub">Kovil Mutual Benefit Savings Chit</div>
+  <div class="login-sub" id="loginSub">Kovil Mutual Benefit Savings Chit</div>
   <div class="login-box">
-    <label>Admin Password</label>
-    <input type="password" id="pwdInput" placeholder="Password உள்ளிடுங்க" onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="login-btn" onclick="doLogin()">🔐 Login</button>
-    <div class="login-err" id="loginErr">❌ Wrong password!</div>
+    <div id="loginForm">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="Email" inputmode="email"
+             autocomplete="username" autocapitalize="none" spellcheck="false">
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="Password உள்ளிடுங்க"
+             autocomplete="current-password">
+      <div id="nameWrap" style="display:none;">
+        <label>உங்கள் பெயர்</label>
+        <input type="text" id="signupName" placeholder="பெயர்" autocomplete="name">
+      </div>
+      <button class="login-btn" id="loginBtn">🔐 உள்நுழை</button>
+      <div class="login-err" id="loginErr"></div>
+      <button id="toggleSignupBtn" style="background:none;border:none;color:#22c55e;font-size:0.82rem;font-weight:700;text-decoration:underline;padding:9px;width:100%;cursor:pointer;font-family:inherit;">புதியவரா? கணக்கு உருவாக்குங்க</button>
+      <button id="forgotBtn" style="background:none;border:none;color:#22c55e;font-size:0.82rem;font-weight:700;text-decoration:underline;padding:4px;width:100%;cursor:pointer;font-family:inherit;">Password மறந்துவிட்டீர்களா?</button>
+    </div>
+    <div id="pendingBox" style="display:none;text-align:center;">
+      <div style="font-size:1rem;font-weight:800;color:#fbbf24;margin-bottom:8px;">அனுமதிக்காக காத்திருக்கிறீர்கள்</div>
+      <div style="font-size:0.8rem;line-height:1.55;opacity:.85;">ரமேஷ் இந்த கணக்கை approve பண்ணனும். அதுக்கு அப்புறம் திரும்ப திறங்க.</div>
+      <button id="pendingSignOutBtn" style="background:none;border:none;color:#22c55e;font-size:0.82rem;font-weight:700;text-decoration:underline;padding:12px;width:100%;cursor:pointer;font-family:inherit;">வேற கணக்கு பயன்படுத்த</button>
+    </div>
   </div>
 </div>
 
@@ -224,6 +243,15 @@ select:focus,input:focus{outline:none;border-color:var(--green);}
 
 <!-- ADD GROUP FORM -->
 <div class="main">
+<div class="add-form" id="peopleCard" style="display:none;">
+  <div class="card-title">👥 People <span id="ucnt" style="color:#22c55e;font-weight:700;"></span></div>
+  <div style="font-size:0.75rem;opacity:.7;margin-bottom:4px;" id="myEmailLine"></div>
+  <button class="btn-b" style="margin-bottom:10px;" onclick="sendMyReset()">📧 Password reset link அனுப்பு</button>
+  <div id="uadmlist"></div>
+  <div style="font-size:0.72rem;opacity:.65;margin-top:8px;line-height:1.5;">
+    Sign up பண்ணவங்க இங்க வந்து காத்திருப்பாங்க. நீங்க approve பண்ணுங்க.
+  </div>
+</div>
 <div class="add-form" id="addGroupForm">
   <div class="card-title">➕ புதுசா Group</div>
   <label>Group பேரு</label>
@@ -462,12 +490,11 @@ select:focus,input:focus{outline:none;border-color:var(--green);}
 // ════════════════════════════════════════════════
 // CONSTANTS
 // ════════════════════════════════════════════════
-const ADMIN_PWD_HASH = 'b7bb7b06960657e9f6cf0ce041e44cda5ebe8b0ff53acfb644b7e6c71cd0df0e'; // sha256("kmbsc123")
-async function sha256Hex(str){
-  const enc = new TextEncoder().encode(str);
-  const buf = await crypto.subtle.digest('SHA-256', enc);
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
+// The gate used to be one admin password whose hash — and, in a comment, its
+// plain text — were both sitting in this file, in a public repository. The
+// database had no authentication at all either. Everyone now signs in with
+// their own account and the rules only let approved members through.
+let currentMember = null;
 const FB_PATH = 'kmbsc_whatsapp';
 const FB_CFG = {
   apiKey:"AIzaSyBVGVu59jDZybPFAX_pRisSrQRoXHQ0EWY",
@@ -552,23 +579,257 @@ function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg
 // ════════════════════════════════════════════════
 // LOGIN
 // ════════════════════════════════════════════════
-async function doLogin(){
-  const v = document.getElementById('pwdInput').value.trim();
-  if(await sha256Hex(v) === ADMIN_PWD_HASH){
-    document.getElementById('loginScreen').classList.add('hide');
-    sessionStorage.setItem('kmbsc_auth','1');
-    loadApp();
-  } else {
-    document.getElementById('loginErr').style.display='block';
-    document.getElementById('loginErr').textContent='❌ Wrong password!';
-    document.getElementById('pwdInput').value='';
-    document.getElementById('pwdInput').focus();
+let signupMode = false;
+let pendingName = '';
+let loginBusy = false;
+const $kw = id => document.getElementById(id);
+
+function loginMsg(text, good){
+  const el = $kw('loginErr');
+  if(!el) return;
+  el.textContent = text || '';
+  el.style.display = text ? 'block' : 'none';
+  el.style.color = good ? '#22c55e' : '';
+}
+
+function setSignupMode(on){
+  signupMode = on;
+  $kw('nameWrap').style.display = on ? 'block' : 'none';
+  $kw('loginPassword').setAttribute('autocomplete', on ? 'new-password' : 'current-password');
+  $kw('loginBtn').textContent = on ? '✅ கணக்கு உருவாக்கு' : '🔐 உள்நுழை';
+  $kw('toggleSignupBtn').textContent = on ? 'ஏற்கனவே கணக்கு இருக்கா? உள்நுழை' : 'புதியவரா? கணக்கு உருவாக்குங்க';
+  $kw('forgotBtn').style.display = on ? 'none' : 'block';
+  loginMsg('');
+}
+
+// Firebase error codes are not for reading. Turn them into something calm.
+function friendlyAuthMessage(code){
+  switch(code){
+    case 'auth/invalid-email':          return 'Email சரியா இல்ல.';
+    case 'auth/missing-password':       return 'Password போடுங்க.';
+    case 'auth/weak-password':          return 'Password குறைஞ்சது 6 எழுத்து இருக்கணும்.';
+    case 'auth/email-already-in-use':   return 'இந்த email-ல ஏற்கனவே கணக்கு இருக்கு. உள்நுழையுங்க.';
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':         return 'Email இல்ல password தப்பு.';
+    case 'auth/too-many-requests':      return 'நிறைய முயற்சி ஆயிடுச்சு. கொஞ்ச நேரம் கழிச்சு பாருங்க.';
+    case 'auth/network-request-failed': return 'இணைப்பு இல்ல. Network பாத்து மறுபடி முயற்சி பண்ணுங்க.';
+    case 'auth/operation-not-allowed':  return 'Email sign-in இன்னும் ஆன் பண்ணல.';
+    default:                            return 'உள்நுழைய முடியல. கொஞ்ச நேரம் கழிச்சு பாருங்க.';
   }
 }
+
+// The first person to sign up runs the chit, so they come straight in as the
+// admin. Everyone after them waits. The rules decide this, not this code.
+function claimMembership(user, name){
+  const base = {
+    name: name || (user.email || '').split('@')[0],
+    email: user.email,
+    created: Date.now()
+  };
+  const path = FB_PATH + '/members/' + user.uid;
+  return db.ref(path).set(Object.assign({}, base, { role:'admin', status:'approved' }))
+    .catch(() => {
+      console.log('KMBSC whatsapp: not the first member, joining as pending');
+      return db.ref(path).set(Object.assign({}, base, { role:'member', status:'pending' }));
+    });
+}
+
+async function doLogin(){
+  if(loginBusy) return;
+  const email    = $kw('loginEmail').value.trim();
+  const password = $kw('loginPassword').value;
+  const name     = $kw('signupName').value.trim();
+
+  if(!email){    loginMsg('Email போடுங்க.'); return; }
+  if(!password){ loginMsg('Password போடுங்க.'); return; }
+  if(signupMode && !name){ loginMsg('உங்க பெயர் போடுங்க.'); return; }
+
+  const btn = $kw('loginBtn');
+  const label = btn.textContent;
+  loginBusy = true; btn.disabled = true; btn.textContent = 'ஒரு நிமிஷம்…';
+  loginMsg('');
+  try{
+    if(signupMode){
+      pendingName = name;
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      await claimMembership(cred.user, name);
+    } else {
+      await auth.signInWithEmailAndPassword(email, password);
+    }
+    $kw('loginPassword').value = '';
+  }catch(e){
+    console.error('KMBSC whatsapp: sign-in failed', e);
+    loginMsg(friendlyAuthMessage(e && e.code));
+  }finally{
+    loginBusy = false; btn.disabled = false; btn.textContent = label;
+  }
+}
+
+function showLogin(){
+  currentMember = null;
+  $kw('loginForm').style.display = 'block';
+  $kw('pendingBox').style.display = 'none';
+  $kw('loginScreen').classList.remove('hide');
+}
+function showPending(){
+  currentMember = null;
+  $kw('loginForm').style.display = 'none';
+  $kw('pendingBox').style.display = 'block';
+  $kw('loginScreen').classList.remove('hide');
+}
+
 function doLogout(){
-  sessionStorage.removeItem('kmbsc_auth');
+  auth.signOut().catch(e => console.error('KMBSC whatsapp: sign-out failed', e));
   location.reload();
 }
+
+// Firebase keeps the session on the device, so this runs on every open and
+// nobody has to type anything again. Watching our own member record means an
+// approval takes effect the moment it happens, with no reload.
+let memberUnsub = null;
+let claiming = false;
+let appStarted = false;
+
+function watchAuth(){
+  auth.onAuthStateChanged(user => {
+    if(memberUnsub){ memberUnsub(); memberUnsub = null; }
+    if(!user){ showLogin(); return; }
+
+    const mref = db.ref(FB_PATH + '/members/' + user.uid);
+    const handler = async snap => {
+      const m = snap.val();
+
+      // Creating the account and writing the member record travel over two
+      // different connections, and the database does not always have the new
+      // token yet when the write goes out. Claiming from in here means the
+      // token is certainly attached, and reopening repairs anyone left
+      // without a record.
+      if(!m && !claiming){
+        claiming = true;
+        try{ await claimMembership(user, pendingName); }
+        catch(e){ console.error('KMBSC whatsapp: could not create the member record', e); }
+        claiming = false;
+        return;
+      }
+
+      if(m && m.status === 'approved'){
+        currentMember = { id:user.uid, name:m.name, email:m.email, isAdmin:m.role === 'admin' };
+        $kw('loginScreen').classList.add('hide');
+        const card = $kw('peopleCard');
+        if(card) card.style.display = currentMember.isAdmin ? 'block' : 'none';
+        if(appStarted) return;
+        appStarted = true;
+        loadApp();
+        if(currentMember.isAdmin) watchMembers();
+      } else {
+        showPending();
+      }
+    };
+    mref.on('value', handler, err => {
+      console.error('KMBSC whatsapp: could not read membership', err);
+      showPending();
+    });
+    memberUnsub = () => mref.off('value', handler);
+  });
+}
+
+// PEOPLE — admin only
+let members = [];
+let membersWatched = false;
+function watchMembers(){
+  if(membersWatched) return;
+  membersWatched = true;
+  db.ref(FB_PATH + '/members').on('value', snap => {
+    const val = snap.val() || {};
+    members = Object.entries(val).map(([id, m]) => Object.assign({ id }, m));
+    renderPeople();
+  }, err => console.error('KMBSC whatsapp: member list read failed', err));
+}
+
+function renderPeople(){
+  const wrap = $kw('uadmlist');
+  if(!wrap) return;
+  const pending = members.filter(m => m.status === 'pending').length;
+  const cnt = $kw('ucnt');
+  if(cnt) cnt.textContent = pending ? pending + ' காத்திருக்காங்க' : String(members.length);
+  const mine = $kw('myEmailLine');
+  if(mine && currentMember) mine.textContent = currentMember.email || '';
+
+  if(!members.length){
+    wrap.innerHTML = '<div style="font-size:0.78rem;opacity:.7;">யாரும் இன்னும் sign up பண்ணல.</div>';
+    return;
+  }
+
+  // People still waiting go on top, because they are the ones needing an answer.
+  const sorted = members.slice().sort((a,b) => {
+    const wa = a.status === 'pending' ? 0 : 1, wb = b.status === 'pending' ? 0 : 1;
+    return wa !== wb ? wa - wb : (a.name || '').localeCompare(b.name || '');
+  });
+
+  const pill = 'font-size:0.72rem;font-weight:700;padding:6px 11px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;margin-left:5px;';
+  wrap.innerHTML = sorted.map(u => {
+    const mark = u.status === 'pending' ? '⏳' : (u.role === 'admin' ? '👑' : '🙂');
+    const me = u.id === (currentMember && currentMember.id);
+    let btns = '';
+    if(u.status === 'pending'){
+      btns = '<button style="' + pill + 'background:#22c55e;color:#fff;" onclick="apprM(\'' + u.id + '\')">Approve</button>'
+           + '<button style="' + pill + 'background:transparent;color:#ef4444;border:1px solid #ef4444;" onclick="rmM(\'' + u.id + '\')">Remove</button>';
+    } else if(!me && u.role !== 'admin'){
+      btns = '<button style="' + pill + 'background:transparent;color:#22c55e;border:1px solid #22c55e;" onclick="admM(\'' + u.id + '\')">Make admin</button>'
+           + '<button style="' + pill + 'background:transparent;color:#ef4444;border:1px solid #ef4444;" onclick="rmM(\'' + u.id + '\')">Remove</button>';
+    } else if(!me){
+      btns = '<button style="' + pill + 'background:transparent;color:#ef4444;border:1px solid #ef4444;" onclick="rmM(\'' + u.id + '\')">Remove</button>';
+    }
+    return '<div style="display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">'
+         + '<span style="flex:1;min-width:130px;font-size:0.82rem;font-weight:700;">' + mark + ' ' + (u.name || 'Someone')
+         + '<span style="display:block;opacity:.6;font-size:0.7rem;font-weight:500;word-break:break-all;">' + (u.email || '') + '</span></span>'
+         + btns + '</div>';
+  }).join('');
+}
+
+async function apprM(id){
+  try{ await db.ref(FB_PATH + '/members/' + id).update({ status:'approved' }); toast('✅ Approve ஆயிடுச்சு'); }
+  catch(e){ console.error('KMBSC whatsapp: approve failed', e); toast('⚠️ சேமிக்க முடியல'); }
+}
+async function admM(id){
+  try{ await db.ref(FB_PATH + '/members/' + id).update({ role:'admin' }); toast('👑 Admin ஆயிடுச்சு'); }
+  catch(e){ console.error('KMBSC whatsapp: role change failed', e); toast('⚠️ சேமிக்க முடியல'); }
+}
+async function rmM(id){
+  if(id === (currentMember && currentMember.id)){ toast('⚠️ உங்களையே நீக்க முடியாது'); return; }
+  const u = members.find(x => x.id === id);
+  const admins = members.filter(x => x.role === 'admin' && x.status === 'approved');
+  if(u && u.role === 'admin' && admins.length <= 1){ toast('⚠️ கடைசி admin-ஐ நீக்க முடியாது'); return; }
+  if(!confirm('"' + (u ? u.name : 'இவரை') + '" நீக்கவா?')) return;
+  try{ await db.ref(FB_PATH + '/members/' + id).remove(); toast('🗑️ நீக்கியாச்சு'); }
+  catch(e){ console.error('KMBSC whatsapp: remove failed', e); toast('⚠️ நீக்க முடியல'); }
+}
+
+async function sendMyReset(){
+  const email = currentMember && currentMember.email;
+  if(!email){ toast('⚠️ உள்நுழையல'); return; }
+  try{ await auth.sendPasswordResetEmail(email); toast('📧 Reset link அனுப்பியாச்சு'); }
+  catch(e){ console.error('KMBSC whatsapp: reset failed', e); toast('⚠️ இப்ப அனுப்ப முடியல'); }
+}
+
+$kw('loginBtn').addEventListener('click', doLogin);
+$kw('toggleSignupBtn').addEventListener('click', () => setSignupMode(!signupMode));
+['loginEmail','loginPassword','signupName'].forEach(id => {
+  $kw(id).addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
+});
+$kw('pendingSignOutBtn').addEventListener('click', () => auth.signOut());
+$kw('forgotBtn').addEventListener('click', async () => {
+  const email = $kw('loginEmail').value.trim();
+  if(!email){ loginMsg('முதல்ல email போட்டு, அப்புறம் இத அழுத்துங்க.'); return; }
+  try{
+    await auth.sendPasswordResetEmail(email);
+    loginMsg('Reset link அனுப்பியாச்சு. Inbox பாருங்க.', true);
+  }catch(e){
+    console.error('KMBSC whatsapp: reset failed', e);
+    loginMsg(friendlyAuthMessage(e && e.code));
+  }
+});
 
 // ════════════════════════════════════════════════
 // FIREBASE
@@ -654,12 +915,25 @@ setTimeout(runAutoCheckDigest, 2500);
     db = null;
   }
 }
-function fbSave(){ localStorage.setItem('kmbsc_g',JSON.stringify(groups)); if(db) db.ref(FB_PATH+'/groups').set(groups); }
-function fbSaveRec(n){ localStorage.setItem('kmbsc_rec',n); if(db) db.ref(FB_PATH+'/receipt_no').set(n); }
-function fbSavePay(){ localStorage.setItem('kmbsc_pay',JSON.stringify(payments)); if(db) db.ref(FB_PATH+'/payments').set(payments); }
-function fbSaveWH(){ localStorage.setItem('kmbsc_wh',JSON.stringify(winHistory)); if(db) db.ref(FB_PATH+'/win_history').set(winHistory); }
-function fbSaveTpl(){ localStorage.setItem('kmbsc_tpl',JSON.stringify(templates)); if(db) db.ref(FB_PATH+'/templates').set(templates); }
-function fbSaveCustom(){ localStorage.setItem('kmbsc_custom',JSON.stringify(customMsgs)); if(db) db.ref(FB_PATH+'/custom_msgs').set(customMsgs); }
+// These used to fire and forget. If the write was refused, the phone still
+// had the change in localStorage, so it looked saved while the database never
+// received it — and the next device to open the app would quietly disagree.
+// One retry, then a plain message.
+function fbPut(path, value, label){
+  if(!db) return;
+  db.ref(FB_PATH + '/' + path).set(value)
+    .catch(() => db.ref(FB_PATH + '/' + path).set(value))
+    .catch(err => {
+      console.error('KMBSC whatsapp: could not save ' + label, err);
+      toast('⚠️ ' + label + ' சேமிக்க முடியல — network பாருங்க');
+    });
+}
+function fbSave(){ localStorage.setItem('kmbsc_g',JSON.stringify(groups)); fbPut('groups', groups, 'groups'); }
+function fbSaveRec(n){ localStorage.setItem('kmbsc_rec',n); fbPut('receipt_no', n, 'receipt number'); }
+function fbSavePay(){ localStorage.setItem('kmbsc_pay',JSON.stringify(payments)); fbPut('payments', payments, 'payments'); }
+function fbSaveWH(){ localStorage.setItem('kmbsc_wh',JSON.stringify(winHistory)); fbPut('win_history', winHistory, 'win history'); }
+function fbSaveTpl(){ localStorage.setItem('kmbsc_tpl',JSON.stringify(templates)); fbPut('templates', templates, 'templates'); }
+function fbSaveCustom(){ localStorage.setItem('kmbsc_custom',JSON.stringify(customMsgs)); fbPut('custom_msgs', customMsgs, 'messages'); }
 function setFbStatus(ok,msg){
   const el=document.getElementById('fbStatus');
   el.textContent = ok ? '🟢 Firebase Connected' : '🔴 '+(msg||'Offline');
@@ -1509,10 +1783,11 @@ function resetCustomEdit(idx){
 // ════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════
-if(sessionStorage.getItem('kmbsc_auth')==='1'){
-  document.getElementById('loginScreen').classList.add('hide');
-  loadApp();
-}
+// A flag in sessionStorage was never proof of anything — setting it by hand
+// opened the app. Firebase decides now, and loadApp() runs once it has.
+sessionStorage.removeItem('kmbsc_auth');
+initFB();
+watchAuth();
 </script>
 <script>
 if('serviceWorker' in navigator){
