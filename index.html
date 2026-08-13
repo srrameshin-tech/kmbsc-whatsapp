@@ -2,7 +2,7 @@
 <html lang="ta">
 <head>
 <meta charset="UTF-8">
-<meta name="app-build" content="20260813-1330">
+<meta name="app-build" content="20260813-1420">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#25D366">
 <meta name="mobile-web-app-capable" content="yes">
@@ -755,7 +755,7 @@ function renderPeople(){
   const cnt = $kw('ucnt');
   if(cnt) cnt.textContent = pending ? pending + ' காத்திருக்காங்க' : String(members.length);
   const mine = $kw('myEmailLine');
-  if(mine && currentMember) mine.textContent = currentMember.email || '';
+  if(mine && currentMember) mine.textContent = 'நீங்க உள்நுழைஞ்சது — ' + (currentMember.email || '');
 
   if(!members.length){
     wrap.innerHTML = '<div style="font-size:0.78rem;opacity:.7;">யாரும் இன்னும் sign up பண்ணல.</div>';
@@ -936,10 +936,14 @@ function fbSavePay(){ localStorage.setItem('kmbsc_pay',JSON.stringify(payments))
 function fbSaveWH(){ localStorage.setItem('kmbsc_wh',JSON.stringify(winHistory)); fbPut('win_history', winHistory, 'win history'); }
 function fbSaveTpl(){ localStorage.setItem('kmbsc_tpl',JSON.stringify(templates)); fbPut('templates', templates, 'templates'); }
 function fbSaveCustom(){ localStorage.setItem('kmbsc_custom',JSON.stringify(customMsgs)); fbPut('custom_msgs', customMsgs, 'messages'); }
-function setFbStatus(ok,msg){
+// Whatever the database says goes to the console. What Ramesh and anyone else
+// sees is a plain sentence, because a raw code on the header helps nobody and
+// only makes a working app look broken.
+function setFbStatus(ok){
   const el=document.getElementById('fbStatus');
-  el.textContent = ok ? '🟢 Firebase Connected' : '🔴 '+(msg||'Offline');
-  el.style.color = ok ? 'var(--green)' : 'var(--red)';
+  if(!el) return;
+  el.textContent = ok ? '🟢 Firebase Connected' : '⚪ இந்த phone-ல சேமிச்சு வெச்சிருக்கு';
+  el.style.color = ok ? 'var(--green)' : 'var(--muted)';
 }
 
 // ════════════════════════════════════════════════
@@ -986,12 +990,40 @@ function loadApp(){
   checkDueBanner();
 
   // Firebase sync
-  setTimeout(function(){
-    try {
-      initFB();
-      if(!db){ setFbStatus(false,'No DB'); return; }
-      db.ref(FB_PATH).once('value').then(function(snap){
-        const d=snap.val();
+  //
+  // The rules protect every branch of kmbsc_whatsapp on its own and keep the
+  // members list to admins only. Asking for the parent node in one shot is
+  // therefore refused outright, and the app was falling back to whatever the
+  // phone had cached while quietly believing it was offline. Each branch the
+  // app actually needs is read on its own instead, and the members list stays
+  // where it belongs — with watchMembers, for admins.
+  const FB_BRANCHES = ['groups','receipt_no','payments','win_history','templates','custom_msgs'];
+
+  function readAppData(){
+    return Promise.all(FB_BRANCHES.map(function(k){
+      return db.ref(FB_PATH + '/' + k).once('value').then(function(s){ return [k, s.val()]; });
+    })).then(function(pairs){
+      const out = {};
+      let any = false;
+      pairs.forEach(function(p){
+        if(p[1] !== null && p[1] !== undefined){ out[p[0]] = p[1]; any = true; }
+      });
+      return any ? out : null;
+    });
+  }
+
+  // Seeding an empty database is an admin job under the rules. A member who
+  // opens the app first should not set off a refused write.
+  function seedGroups(){
+    if(currentMember && currentMember.isAdmin){ fbPut('groups', groups, 'groups'); }
+  }
+
+  // A slow connection is not an error worth showing anyone. Three quiet tries,
+  // then the app carries on with what it has and says so plainly.
+  let fbTries = 0;
+  function syncFromFirebase(){
+    fbTries++;
+    readAppData().then(function(d){
         if(d){
           if(d.groups&&d.groups.length>0){
             groups=d.groups;
@@ -1014,7 +1046,7 @@ function loadApp(){
               }
             });
             localStorage.setItem('kmbsc_g',JSON.stringify(groups));
-          } else { db.ref(FB_PATH+'/groups').set(groups); }
+          } else { seedGroups(); }
           if(d.receipt_no) recNo=d.receipt_no;
           if(d.payments) payments=d.payments;
           if(d.win_history) winHistory=Array.isArray(d.win_history)?d.win_history:Object.values(d.win_history);
@@ -1027,15 +1059,35 @@ function loadApp(){
           localStorage.setItem('kmbsc_pay',JSON.stringify(payments));
           localStorage.setItem('kmbsc_wh',JSON.stringify(winHistory));
         } else {
-          db.ref(FB_PATH+'/groups').set(groups);
+          seedGroups();
         }
         setFbStatus(true);
         renderTabs();
         populateSels();
         updateAll();
         renderCustomMsgs();
-      }).catch(function(e){ setFbStatus(false,e.code||'Error'); });
-    } catch(e){ setFbStatus(false,e.message); }
+      }).catch(function(e){
+        console.error('KMBSC whatsapp: sync attempt ' + fbTries + ' failed', e);
+        logAppError('fb-sync', (e && (e.code || e.message)) || 'unknown', 'attempt ' + fbTries);
+        if(fbTries < 3){ setTimeout(syncFromFirebase, fbTries * 1200); return; }
+        setFbStatus(false);
+      });
+  }
+
+  setTimeout(function(){
+    try {
+      initFB();
+      if(!db){
+        console.error('KMBSC whatsapp: database not available');
+        setFbStatus(false);
+        return;
+      }
+      syncFromFirebase();
+    } catch(e){
+      console.error('KMBSC whatsapp: sync could not start', e);
+      logAppError('fb-sync-start', e && e.message, '');
+      setFbStatus(false);
+    }
   }, 500);
 }
 
