@@ -2,7 +2,7 @@
 <html lang="ta">
 <head>
 <meta charset="UTF-8">
-<meta name="app-build" content="20260813-1140">
+<meta name="app-build" content="20260813-1330">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#25D366">
 <meta name="mobile-web-app-capable" content="yes">
@@ -495,6 +495,7 @@ select:focus,input:focus{outline:none;border-color:var(--green);}
 // database had no authentication at all either. Everyone now signs in with
 // their own account and the rules only let approved members through.
 let currentMember = null;
+let auth = null;
 const FB_PATH = 'kmbsc_whatsapp';
 const FB_CFG = {
   apiKey:"AIzaSyBVGVu59jDZybPFAX_pRisSrQRoXHQ0EWY",
@@ -841,6 +842,7 @@ function initFB(){
       firebase.initializeApp(FB_CFG);
     }
     db = firebase.database();
+    auth = firebase.auth();
 // ---------------- AUTO CHECK: background error/crash logger ----------------
 let errorLogQueue = [];
 let errorLogFlushTimer = null;
